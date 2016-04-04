@@ -758,23 +758,26 @@ def _copyTreeSubset(sourceFile,sourcePathSplit,destFile,destPathSplit,firstEvent
     retcode = changeDirectory(destFile,destPathSplit)
     if retcode != 0: return retcode
     smallTree = bigTree.CloneTree(0)
+
     if lastEvent == -1:
         lastEvent = nbrEntries-1
-    isNtuple = bigTree.InheritsFrom(ROOT.TNtuple.Class())
-    for i in range(firstEvent, lastEvent+1):
-        bigTree.GetEntry(i)
-        if isNtuple:
-            super(ROOT.TNtuple,smallTree).Fill()
-        else:
-            smallTree.Fill()
-    if selectionString:
-        if isNtuple:
-            smallSkimmedTree = super(ROOT.TNtuple,smallTree).CopyTree(selectionString)
-        else:
-            smallSkimmedTree = smallTree.CopyTree(selectionString)
-        smallSkimmedTree.Write()
-    else:
-        smallTree.Write()
+    numberOfEntries = (lastEvent-firstEvent)+1
+
+    # "Skim" events based on branch values using selectionString
+    # as well as selecting a range of events by index
+    outputTree = bigTree.CopyTree(selectionString,"",numberOfEntries,firstEvent)
+
+    # "Slim" tree by removing branches -
+    # This is done after the skimming to allow for the user to skim on a
+    # branch they no longer need to keep
+    if branchexclude:
+        _setBranchStatus(outputTree,branchexclude,0)
+    if branchinclude:
+        _setBranchStatus(outputTree,branchinclude,1)
+    if branchexclude or branchinclude:
+        outputTree = outputTree.CloneTree()
+
+    outputTree.Write()
     return retcode
 
 def _copyTreeSubsets(fileName, pathSplitList, destFile, destPathSplit, first, last, selectionString):
